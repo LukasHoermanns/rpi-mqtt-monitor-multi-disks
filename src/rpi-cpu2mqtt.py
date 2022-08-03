@@ -17,12 +17,15 @@ import os
 hostname = socket.gethostname()
 
 
-def check_used_space(path):
-    st = os.statvfs(path)
-    free_space = st.f_bavail * st.f_frsize
-    total_space = st.f_blocks * st.f_frsize
-    used_space = int(100 - ((free_space / total_space) * 100))
-    return used_space
+def check_used_space():
+    space = {}
+    for disc in config.discs.items():
+        st = os.statvfs(disc[1])
+        free_space = st.f_bavail * st.f_frsize
+        total_space = st.f_blocks * st.f_frsize
+        used_space = int(100 - ((free_space / total_space) * 100))
+        space[disc[0]] = used_space
+    return space
 
 
 def check_cpu_load():
@@ -109,9 +112,9 @@ def config_json(what_config):
         data["icon"] = "hass:thermometer"
         data["name"] = hostname + " CPU Temperature"
         data["unit_of_measurement"] = "°C"
-    elif what_config == "diskusage":
+    elif str(what_config).__contains__("diskusage"):
         data["icon"] = "mdi:harddisk"
-        data["name"] = hostname + " Disk Usage"
+        data["name"] = hostname + what_config
         data["unit_of_measurement"] = "%"
     elif what_config == "voltage":
         data["icon"] = "mdi:speedometer"
@@ -162,12 +165,13 @@ def publish_to_mqtt(cpu_load=0, cpu_temp=0, used_space=0, voltage=0, sys_clock_s
         client.publish(config.mqtt_topic_prefix + "/" + hostname + "/cputemp", cpu_temp, qos=1)
         time.sleep(config.sleep_time)
     if config.used_space:
-        if config.discovery_messages:
-            client.publish("homeassistant/sensor/" + config.mqtt_topic_prefix + "/" + hostname + "_diskusage/config",
-                           config_json('diskusage'), qos=0)
+        for disc in used_space.items():
+            if config.discovery_messages:
+                client.publish("homeassistant/sensor/" + config.mqtt_topic_prefix + "/" + hostname + "_diskusage" + str(disc[0]).lower() +"/config",
+                            config_json('diskusage' + str(disc[0]).lower()), qos=0)
+                time.sleep(config.sleep_time)
+            client.publish(config.mqtt_topic_prefix + "/" + hostname + "/diskusage" + str(disc[0]).lower(), disc[1], qos=1)
             time.sleep(config.sleep_time)
-        client.publish(config.mqtt_topic_prefix + "/" + hostname + "/diskusage", used_space, qos=1)
-        time.sleep(config.sleep_time)
     if config.voltage:
         if config.discovery_messages:
             client.publish("homeassistant/sensor/" + config.mqtt_topic_prefix + "/" + hostname + "_voltage/config",
@@ -240,7 +244,7 @@ if __name__ == '__main__':
     if config.cpu_temp:
         cpu_temp = check_cpu_temp()
     if config.used_space:
-        used_space = check_used_space('/')
+        used_space = check_used_space()
     if config.voltage:
         voltage = check_voltage()
     if config.sys_clock_speed:

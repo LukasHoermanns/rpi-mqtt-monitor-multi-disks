@@ -31,3 +31,6 @@ sys_clock_speed = True
 swap = True
 memory = True
 uptime = True
+
+# Define the Disks
+discs = {"root": "/", "hdd1": "/mnt/hdd1", "hdd2": "/mnt/hdd2"}
